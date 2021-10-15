@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt, numpy as np, csv
 from sklearn.linear_model import LinearRegression
-
-
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 ### DATA LOADING
 # Load APNIC Data
 apnic_data, i =  {}, 0
@@ -106,6 +107,8 @@ subscriber_counts = { # Millions, I chose ISPs with more than 1M subscribers
 	"LG": 21.82, # https://www.uplus.co.kr/cmg/engl/inre/peir/RetrievePeIrIiQuaterList.hpi#
 }
 
+french_isps = ["Orange", "Bouygues", "Free", "Free_M", "SFR", "El_tele"]
+
 # Organize arrays for plotting
 ordered_isps = list(isp_to_asn.keys())
 subscriber_counts_plot = np.array([subscriber_counts[k] for k in ordered_isps])
@@ -124,22 +127,43 @@ fig = plt.figure(figsize=(12, 7))
 ax1 = fig.add_subplot(111)
 ax2 = ax1.twiny()
 max_x_bot = 8 # percent
-max_x_top = 30 # million
+max_x_top = 120 # million
 
-ln1 = ax1.scatter(cache_hit_rates_plot, subscriber_counts_plot, marker='o', s=70, c='b')
+ln1 = ax1.scatter(cache_hit_rates_plot, subscriber_counts_plot, marker='o', s=70, color=(0,0,1,.5))
+ln1 = ax1.scatter([cache_hit_rates_plot[i] for i,isp in enumerate(ordered_isps) if isp in french_isps],
+		[subscriber_counts_plot[i] for i,isp in enumerate(ordered_isps) if isp in french_isps], marker='o', s=70, c='b')
 m = LinearRegression(fit_intercept=False).fit(cache_hit_rates_plot, subscriber_counts_plot) # model is y = a x (no intercept)
 slope = m.coef_[0]
 r = m.score(cache_hit_rates_plot, subscriber_counts_plot)
 intercept = 0
 ln2 = ax1.plot(np.linspace(0, max_x_bot), slope * np.array(np.linspace(0, max_x_bot)) + intercept, 'b-', label="Cache Hit Rate")
 
-ln3 = ax2.scatter(apnic_plot, subscriber_counts_plot, marker='x', s=70, c='r')
+ln3 = ax2.scatter(apnic_plot, subscriber_counts_plot, marker='x', s=70, color=(1,0,0,.3))
+ln3 = ax2.scatter([apnic_plot[i] for i,isp in enumerate(ordered_isps) if isp in french_isps],
+		[subscriber_counts_plot[i] for i,isp in enumerate(ordered_isps) if isp in french_isps], marker='x', s=70, c='r')
 m_a = LinearRegression(fit_intercept=False).fit(apnic_plot, subscriber_counts_plot) # model is y = a x (no intercept)
 slope_a = m_a.coef_[0]
 r_a = m_a.score(apnic_plot, subscriber_counts_plot)
 intercept_a = 0
 ln4 = ax2.plot(np.linspace(0, max_x_top), slope_a * np.array(np.linspace(0, max_x_top)) + intercept_a, 'r--',
 			label="APNIC Users")
+
+max_y = max_x_top
+
+
+for i, isp in enumerate(ordered_isps):
+	if isp in french_isps:
+		dxb, dxt, dyb, dyt = .005*max_x_bot,.005*max_x_top,.015*max_y,.015*max_y
+		if isp == "Free":
+			dxt*=-4;dyb*=3;dyt*=2
+		elif isp == "Free_M":
+			dyb*=2;dxb*=-7
+		elif isp == "Bouygues":
+			dxt*=-8; dyt *=2
+		elif isp == "El_tele":
+			dyt *= 3
+		ax1.annotate(isp, (cache_hit_rates_plot[i]+dxb, subscriber_counts_plot[i]+dyb), fontsize=15, c='b')
+		ax2.annotate(isp, (apnic_plot[i]+dxt, subscriber_counts_plot[i]+dyt), fontsize=15, c='r')
 
 n_ticks = 6
 ax1.set_xlim(0.0, max_x_bot)
@@ -150,8 +174,8 @@ ax2.set_xlim(0, max_x_top)
 ax2.set_xticks([round(el,1) for el in np.linspace(0, max_x_top, num=n_ticks)])
 ax2.set_xticklabels([round(el,1) for el in np.linspace(0, max_x_top, num=n_ticks)], fontsize=fontsize)
 
-y_ticks = [round(el,2) for el in np.linspace(0, 120, num=n_ticks)]
-ax1.set_ylim(0, 120)
+y_ticks = [round(el,2) for el in np.linspace(0, max_y, num=n_ticks)]
+ax1.set_ylim(0, max_y)
 ax1.set_yticks(y_ticks)
 ax1.set_yticklabels(y_ticks, fontsize=fontsize)
 
@@ -163,6 +187,6 @@ ax2.set_xlabel("APNIC Estimated Users (M) ($\\times$)", fontsize=fontsize, c='r'
 ax1.set_ylabel("Subscribers (M)", fontsize=fontsize)
 lns = ln4 + ln2
 labs = [l.get_label() for l in lns]
-ax1.legend(lns, labs, fontsize=fontsize-2, title="Fitted Lines", loc="upper left")
+ax1.legend(lns, labs, fontsize=fontsize-2, title="Fitted Lines", loc="upper right")
 
 plt.savefig("subscribers_hitrate_apnic_comparison.pdf", bbox_inches='tight')
